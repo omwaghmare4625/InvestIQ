@@ -1,0 +1,104 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-background: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-hover);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-accent: var(--accent);
+  --color-success: #10B981;
+  --color-success-dim: #065F46;
+  --color-danger: #EF4444;
+  --color-warning: #F59E0B;
+  --color-text-primary: var(--text-base);
+  --color-text-secondary: var(--text-muted);
+  --color-text-muted: var(--text-dim);
+
+  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 12px;
+
+  --shadow-block: var(--border-width) var(--border-width) 0px 0px var(--shadow-color);
+  --shadow-block-hover: calc(var(--border-width) / 2) calc(var(--border-width) / 2) 0px 0px var(--shadow-color);
+  
+  --shadow-elevated: 6px 6px 0px 0px var(--shadow-color);
+  --shadow-modal: 10px 10px 0px 0px var(--shadow-color);
+
+  @keyframes accordion-down {
+    from { height: 0; }
+    to { height: var(--radix-accordion-content-height); }
+  }
+  @keyframes accordion-up {
+    from { height: var(--radix-accordion-content-height); }
+    to { height: 0; }
+  }
+
+  @keyframes spin-slow {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+}
+
+@layer base {
+  :root {
+    --bg: #F5F3EE;
+    --surface: #FFFFFF;
+    --surface-hover: #EDEBE6;
+    --border: #1A1A1A;
+    --primary: #4338CA;
+    --primary-hover: #3730A3;
+    --accent: #F59E0B;
+    --text-base: #1A1A1A;
+    --text-muted: #52525B;
+    --text-dim: #71717A;
+    --shadow-color: #1A1A1A;
+    --border-width: 3px;
+  }
+
+  .dark {
+    --bg: #101014;
+    --surface: #1A1A20;
+    --surface-hover: #25252D;
+    --border: #3F3F50;
+    --primary: #818CF8;
+    --primary-hover: #6366F1;
+    --accent: #FBBF24;
+    --text-base: #E4E4E7;
+    --text-muted: #A1A1AA;
+    --text-dim: #71717A;
+    --shadow-color: #000000;
+    --border-width: 3px;
+  }
+
+  body {
+    @apply bg-background text-text-primary font-sans antialiased transition-colors duration-300;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply tracking-tight font-bold;
+  }
+}
+
+@layer utilities {
+  .font-numbers {
+    @apply font-mono;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-background border-l-2 border-border;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-primary rounded-none hover:bg-primary-hover;
+}
