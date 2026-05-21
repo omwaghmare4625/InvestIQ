@@ -1,13 +1,34 @@
 import React, { useState } from 'react';
-import { Bell, BellOff, Info, AlertTriangle, CheckCircle, Plus, Trash2, TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
+import {
+  Bell,
+  BellOff,
+  Info,
+  AlertTriangle,
+  CheckCircle,
+  Plus,
+  Trash2,
+  TrendingUp,
+  TrendingDown,
+  BarChart3,
+} from 'lucide-react';
 import { Card, Button, Dialog, Input } from '@/components/ui/Common';
 import { useStore, AlertItem } from '@/store/useStore';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency, getCurrencySymbol } from '@/lib/utils';
 import { toast } from 'sonner';
+import { motion } from 'motion/react';
 
 const STOCK_OPTIONS = [
-  'RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'ICICIBANK',
-  'AAPL', 'MSFT', 'TSLA', 'GOOGL', 'NVDA', 'SPY',
+  'RELIANCE',
+  'TCS',
+  'HDFCBANK',
+  'INFY',
+  'ICICIBANK',
+  'AAPL',
+  'MSFT',
+  'TSLA',
+  'GOOGL',
+  'NVDA',
+  'SPY',
 ];
 
 const ALERT_TYPE_CONFIG = {
@@ -35,13 +56,15 @@ const ALERT_TYPE_CONFIG = {
 };
 
 export default function Alerts() {
-  const { alerts, addAlert, removeAlert } = useStore();
+  const { alerts, addAlert, removeAlert, user } = useStore();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   // Form state
   const [formName, setFormName] = useState('');
   const [formSymbol, setFormSymbol] = useState('AAPL');
-  const [formAlertType, setFormAlertType] = useState<'price_above' | 'price_below' | 'percent_change'>('price_above');
+  const [formAlertType, setFormAlertType] = useState<
+    'price_above' | 'price_below' | 'percent_change'
+  >('price_above');
   const [formTargetValue, setFormTargetValue] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -57,7 +80,11 @@ export default function Alerts() {
       toast.error('Please enter an alert name');
       return;
     }
-    if (!formTargetValue || isNaN(parseFloat(formTargetValue)) || parseFloat(formTargetValue) <= 0) {
+    if (
+      !formTargetValue ||
+      isNaN(parseFloat(formTargetValue)) ||
+      parseFloat(formTargetValue) <= 0
+    ) {
       toast.error('Please enter a valid target value');
       return;
     }
@@ -87,79 +114,134 @@ export default function Alerts() {
   };
 
   return (
-    <div className="space-y-8 pb-10">
-      <header className="flex items-center justify-between">
+    <motion.div
+      className="space-y-12 pb-20"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Alerts</h1>
-          <p className="text-text-muted mt-1">Stay updated with price movements and account activity.</p>
+          <h1 className="text-4xl font-display font-semibold tracking-normal text-text-primary mb-2">
+            Tactical Monitors
+          </h1>
+          <p className="text-text-dim text-sm font-medium text-text-muted">
+            Alerts & Notifications
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="secondary" className="gap-2">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="secondary"
+            className="gap-2.5 px-6 py-5 bg-surface-elevated border border-border text-text-primary hover:bg-surface-hover rounded-md"
+            onClick={() => toast.info('Universal suppression coming soon')}
+          >
             <BellOff className="w-4 h-4" />
-            Mute All
+            <span className="text-[10px] font-semibold tracking-wide">Universal Suppression</span>
           </Button>
-          <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
+          <Button
+            className="gap-2.5 px-8 py-5 bg-primary text-background hover:shadow-glow rounded-md"
+            onClick={() => setIsCreateOpen(true)}
+          >
             <Plus className="w-4 h-4" />
-            Create Alert
+            <span className="text-[10px] font-semibold tracking-wide">Initialize Monitor</span>
           </Button>
         </div>
       </header>
 
       {alerts.length === 0 ? (
-        <Card className="p-12 flex flex-col items-center justify-center text-center">
-          <div className="w-16 h-16 bg-surface-elevated rounded-full flex items-center justify-center mb-4">
-            <Bell className="w-8 h-8 text-text-muted" />
+        <Card className="p-24 flex flex-col items-center justify-center text-center glass-card border-border bg-surface-low/30 backdrop-blur-3xl shadow-glow-sm">
+          <div className="w-20 h-20 bg-surface-elevated border border-border rounded-full flex items-center justify-center mb-10 opacity-50 shadow-glow-sm">
+            <Bell className="w-10 h-10 text-text-dim" />
           </div>
-          <h3 className="font-bold text-lg mb-2">No alerts yet</h3>
-          <p className="text-sm text-text-muted max-w-[300px] mb-6">
-            Create price alerts to get notified when your favorite stocks hit your target.
+          <h3 className="font-display font-semibold text-text-primary mb-4 tracking-wide text-sm">
+            No Active Surveillance
+          </h3>
+          <p className="text-[14px] text-text-dim/50 max-w-[340px] font-medium leading-relaxed mb-10">
+            Define tactical thresholds. Initialize your first telemetry bridge to monitor asset
+            trajectory benchmarks.
           </p>
-          <Button onClick={() => setIsCreateOpen(true)} className="gap-2">
+          <Button
+            onClick={() => setIsCreateOpen(true)}
+            className="gap-2.5 px-10 py-6 bg-primary text-background rounded-md"
+          >
             <Plus className="w-4 h-4" />
-            Create Your First Alert
+            <span className="text-[10px] font-semibold tracking-wide">Deploy First Monitor</span>
           </Button>
         </Card>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {alerts.map((alert) => {
             const config = ALERT_TYPE_CONFIG[alert.alertType];
             const IconComponent = config.icon;
 
             return (
-              <Card key={alert.id} className="p-4 flex gap-4 items-start group transition-all">
-                <div className={cn(
-                  "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
-                  config.bg
-                )}>
-                  <IconComponent className={cn("w-5 h-5", config.color)} />
+              <Card
+                key={alert.id}
+                className="p-6 flex gap-6 items-start group glass-card border-border bg-surface-low/20 backdrop-blur-3xl hover:bg-surface-low/30 hover:border-border transition-all duration-300"
+              >
+                <div
+                  className={cn(
+                    'w-12 h-12 rounded-lg flex items-center justify-center shrink-0 border border-border',
+                    config.bg
+                  )}
+                >
+                  <IconComponent className={cn('w-6 h-6', config.color)} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-bold text-sm">{alert.name}</h3>
-                    <div className="flex items-center gap-2">
-                      <span className={cn(
-                        "text-[10px] font-bold uppercase px-2 py-0.5 rounded-full",
-                        config.bg, config.color
-                      )}>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-display font-medium text-sm tracking-normal text-text-primary">
+                      {alert.name}
+                    </h3>
+                    <div className="flex items-center gap-4">
+                      <span
+                        className={cn(
+                          'text-[9px] font-semibold tracking-wide px-3 py-1 rounded-sm border',
+                          config.bg,
+                          config.color,
+                          'border-current/10'
+                        )}
+                      >
                         {config.label}
                       </span>
-                      <span className="text-[10px] text-text-muted font-medium">
-                        {alert.createdAt ? new Date(alert.createdAt).toLocaleDateString() : ''}
+                      <span className="text-[10px] text-text-dim/30 font-semibold tracking-wide">
+                        {alert.createdAt
+                          ? new Date(alert.createdAt).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                            })
+                          : ''}
                       </span>
                     </div>
                   </div>
-                  <p className="text-sm text-text-secondary leading-relaxed">
-                    {alert.alertType === 'price_above' && `Alert when ${alert.symbol} goes above $${alert.targetValue}`}
-                    {alert.alertType === 'price_below' && `Alert when ${alert.symbol} drops below $${alert.targetValue}`}
-                    {alert.alertType === 'percent_change' && `Alert when ${alert.symbol} changes by ${alert.targetValue}%`}
+                  <p className="text-[13px] text-text-dim/80 leading-relaxed font-medium">
+                    {alert.alertType === 'price_above' &&
+                      `Tactical trigger active for ${alert.symbol} exceeding ${formatCurrency(alert.targetValue, user?.currency)} baseline.`}
+                    {alert.alertType === 'price_below' &&
+                      `Tactical trigger active for ${alert.symbol} cascading below ${formatCurrency(alert.targetValue, user?.currency)} baseline.`}
+                    {alert.alertType === 'percent_change' &&
+                      `Tactical trigger active for ${alert.symbol} volatility exceeding ${alert.targetValue}% threshold.`}
                   </p>
-                  <div className="flex items-center gap-3 mt-2">
-                    <span className="text-xs font-bold bg-surface-elevated px-2 py-1 rounded">{alert.symbol}</span>
-                    <span className="text-xs text-text-muted">Target: {alert.targetValue}</span>
+                  <div className="flex items-center gap-6 mt-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] font-semibold text-text-dim/40 tracking-wide">
+                        Identity:
+                      </span>
+                      <span className="text-[11px] font-display font-semibold text-text-primary">
+                        {alert.symbol}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] font-semibold text-text-dim/40 tracking-wide">
+                        Baseline:
+                      </span>
+                      <span className="text-[11px] font-display font-semibold text-tertiary">
+                        {alert.targetValue}
+                      </span>
+                    </div>
                   </div>
                 </div>
-                <button 
-                  className="p-2 opacity-0 group-hover:opacity-100 hover:bg-danger/10 hover:text-danger rounded-lg transition-all shrink-0"
+                <button
+                  className="p-3 opacity-0 group-hover:opacity-100 bg-surface-elevated border border-border hover:bg-danger/10 hover:text-danger hover:border-danger/30 rounded-md transition-all duration-300 shrink-0"
                   onClick={() => handleDelete(alert.id, alert.name)}
                 >
                   <Trash2 className="w-4 h-4" />
@@ -173,7 +255,10 @@ export default function Alerts() {
       {/* Create Alert Dialog */}
       <Dialog
         isOpen={isCreateOpen}
-        onClose={() => { setIsCreateOpen(false); resetForm(); }}
+        onClose={() => {
+          setIsCreateOpen(false);
+          resetForm();
+        }}
         title="Create Alert"
       >
         <div className="space-y-5">
@@ -191,62 +276,69 @@ export default function Alerts() {
 
           {/* Stock Symbol */}
           <div>
-            <label className="block text-sm font-medium text-text-secondary mb-2">Stock / Asset</label>
-            <div className="grid grid-cols-4 gap-2">
+            <label className="block text-sm font-medium text-text-secondary mb-2">
+              Stock / Asset
+            </label>
+            <select
+              value={formSymbol}
+              onChange={(e) => setFormSymbol(e.target.value)}
+              className="w-full bg-surface border border-border rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-primary"
+            >
               {STOCK_OPTIONS.map((sym) => (
-                <button
-                  key={sym}
-                  type="button"
-                  onClick={() => setFormSymbol(sym)}
-                  className={cn(
-                    "py-2 rounded-lg text-xs font-bold border transition-all",
-                    formSymbol === sym 
-                      ? "bg-primary/10 border-primary text-primary" 
-                      : "bg-surface border-border text-text-muted hover:border-text-muted"
-                  )}
-                >
+                <option key={sym} value={sym}>
                   {sym}
-                </button>
+                </option>
               ))}
-            </div>
+            </select>
           </div>
 
           {/* Alert Type */}
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-2">Alert Type</label>
             <div className="grid grid-cols-3 gap-2">
-              {(Object.keys(ALERT_TYPE_CONFIG) as Array<keyof typeof ALERT_TYPE_CONFIG>).map((type) => {
-                const config = ALERT_TYPE_CONFIG[type];
-                const IconComponent = config.icon;
-                return (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => setFormAlertType(type)}
-                    className={cn(
-                      "flex flex-col items-center gap-2 p-3 rounded-lg border transition-all",
-                      formAlertType === type 
-                        ? "bg-primary/10 border-primary" 
-                        : "bg-surface border-border hover:border-text-muted"
-                    )}
-                  >
-                    <IconComponent className={cn("w-5 h-5", formAlertType === type ? "text-primary" : "text-text-muted")} />
-                    <span className={cn(
-                      "text-[10px] font-bold",
-                      formAlertType === type ? "text-primary" : "text-text-muted"
-                    )}>
-                      {config.label}
-                    </span>
-                  </button>
-                );
-              })}
+              {(Object.keys(ALERT_TYPE_CONFIG) as Array<keyof typeof ALERT_TYPE_CONFIG>).map(
+                (type) => {
+                  const config = ALERT_TYPE_CONFIG[type];
+                  const IconComponent = config.icon;
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setFormAlertType(type)}
+                      className={cn(
+                        'flex flex-col items-center gap-2 p-3 rounded-lg border transition-all',
+                        formAlertType === type
+                          ? 'bg-primary/10 border-primary'
+                          : 'bg-surface border-border hover:border-text-muted'
+                      )}
+                    >
+                      <IconComponent
+                        className={cn(
+                          'w-5 h-5',
+                          formAlertType === type ? 'text-primary' : 'text-text-muted'
+                        )}
+                      />
+                      <span
+                        className={cn(
+                          'text-[10px] font-bold',
+                          formAlertType === type ? 'text-primary' : 'text-text-muted'
+                        )}
+                      >
+                        {config.label}
+                      </span>
+                    </button>
+                  );
+                }
+              )}
             </div>
           </div>
 
           {/* Target Value */}
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-2">
-              {formAlertType === 'percent_change' ? 'Percentage (%)' : 'Target Price ($)'}
+              {formAlertType === 'percent_change'
+                ? 'Percentage (%)'
+                : `Target Price (${getCurrencySymbol(user?.currency || 'INR')})`}
             </label>
             <Input
               type="number"
@@ -262,9 +354,12 @@ export default function Alerts() {
           {formName && formTargetValue && (
             <div className="p-4 bg-surface-elevated rounded-xl border border-border/50">
               <p className="text-sm text-text-secondary">
-                {formAlertType === 'price_above' && `🔔 You'll be alerted when ${formSymbol} goes above $${formTargetValue}`}
-                {formAlertType === 'price_below' && `🔔 You'll be alerted when ${formSymbol} drops below $${formTargetValue}`}
-                {formAlertType === 'percent_change' && `🔔 You'll be alerted when ${formSymbol} changes by ${formTargetValue}%`}
+                {formAlertType === 'price_above' &&
+                  `🔔 You'll be alerted when ${formSymbol} goes above ${formatCurrency(formTargetValue, user?.currency)}`}
+                {formAlertType === 'price_below' &&
+                  `🔔 You'll be alerted when ${formSymbol} drops below ${formatCurrency(formTargetValue, user?.currency)}`}
+                {formAlertType === 'percent_change' &&
+                  `🔔 You'll be alerted when ${formSymbol} changes by ${formTargetValue}%`}
               </p>
             </div>
           )}
@@ -273,7 +368,10 @@ export default function Alerts() {
             <Button
               variant="secondary"
               className="flex-1"
-              onClick={() => { setIsCreateOpen(false); resetForm(); }}
+              onClick={() => {
+                setIsCreateOpen(false);
+                resetForm();
+              }}
             >
               Cancel
             </Button>
@@ -288,6 +386,6 @@ export default function Alerts() {
           </div>
         </div>
       </Dialog>
-    </div>
+    </motion.div>
   );
 }

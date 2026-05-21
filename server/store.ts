@@ -106,7 +106,7 @@ export async function createUser(user: StoredUser): Promise<void> {
 }
 
 export async function updateUser(email: string, updates: Partial<StoredUser>): Promise<StoredUser | undefined> {
-  const updated = await User.findOneAndUpdate({ email }, updates, { new: true });
+  const updated = await User.findOneAndUpdate({ email }, updates, { returnDocument: 'after' });
   if (!updated) return undefined;
   return {
     email: updated.email,
@@ -145,7 +145,7 @@ export async function savePortfolio(email: string, data: PortfolioData): Promise
       holdings: data.holdings,
       balance: data.balance,
     },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
 }
 
@@ -169,7 +169,7 @@ export async function saveGoals(email: string, goals: GoalData[]): Promise<void>
   await GoalModel.findOneAndUpdate(
     { email },
     { goals },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
 }
 
@@ -229,6 +229,6 @@ export async function saveWatchlist(email: string, symbols: string[]): Promise<v
   await Watchlist.findOneAndUpdate(
     { email },
     { symbols },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
 }

@@ -1,5 +1,14 @@
 import React, { useEffect, useRef } from 'react';
-import { createChart, ColorType, CrosshairMode, LineStyle, CandlestickSeries, LineSeries, AreaSeries, HistogramSeries } from 'lightweight-charts';
+import {
+  createChart,
+  ColorType,
+  CrosshairMode,
+  LineStyle,
+  CandlestickSeries,
+  LineSeries,
+  AreaSeries,
+  HistogramSeries,
+} from 'lightweight-charts';
 
 interface StockChartProps {
   data: any[];
@@ -51,12 +60,14 @@ export const StockChart: React.FC<StockChartProps> = ({ data, mode, height = 400
       candlestickSeries.setData(data);
 
       // Add 20-period SMA
-      const smaData = data.map((d, i) => {
-        if (i < 20) return null;
-        const slice = data.slice(i - 20, i);
-        const sum = slice.reduce((a, b) => a + b.close, 0);
-        return { time: d.time, value: sum / 20 };
-      }).filter(d => d !== null);
+      const smaData = data
+        .map((d, i) => {
+          if (i < 20) return null;
+          const slice = data.slice(i - 20, i);
+          const sum = slice.reduce((a, b) => a + b.close, 0);
+          return { time: d.time, value: sum / 20 };
+        })
+        .filter((d) => d !== null);
 
       const smaSeries = chart.addSeries(LineSeries, {
         color: '#F59E0B',
@@ -66,26 +77,36 @@ export const StockChart: React.FC<StockChartProps> = ({ data, mode, height = 400
       smaSeries.setData(smaData as any);
 
       // Bollinger Bands
-      const bbData = data.map((d, i) => {
-        if (i < 20) return null;
-        const slice = data.slice(i - 20, i);
-        const mean = slice.reduce((a, b) => a + b.close, 0) / 20;
-        const variance = slice.reduce((a, b) => a + Math.pow(b.close - mean, 2), 0) / 20;
-        const stdDev = Math.sqrt(variance);
-        return { time: d.time, upper: mean + 2 * stdDev, lower: mean - 2 * stdDev };
-      }).filter(d => d !== null);
+      const bbData = data
+        .map((d, i) => {
+          if (i < 20) return null;
+          const slice = data.slice(i - 20, i);
+          const mean = slice.reduce((a, b) => a + b.close, 0) / 20;
+          const variance = slice.reduce((a, b) => a + Math.pow(b.close - mean, 2), 0) / 20;
+          const stdDev = Math.sqrt(variance);
+          return { time: d.time, upper: mean + 2 * stdDev, lower: mean - 2 * stdDev };
+        })
+        .filter((d) => d !== null);
 
-      const upperBB = chart.addSeries(LineSeries, { color: 'rgba(139, 92, 246, 0.3)', lineWidth: 1, lineStyle: LineStyle.Dashed });
-      const lowerBB = chart.addSeries(LineSeries, { color: 'rgba(139, 92, 246, 0.3)', lineWidth: 1, lineStyle: LineStyle.Dashed });
-      upperBB.setData(bbData.map(d => ({ time: d!.time, value: d!.upper })));
-      lowerBB.setData(bbData.map(d => ({ time: d!.time, value: d!.lower })));
+      const upperBB = chart.addSeries(LineSeries, {
+        color: 'rgba(139, 92, 246, 0.3)',
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+      });
+      const lowerBB = chart.addSeries(LineSeries, {
+        color: 'rgba(139, 92, 246, 0.3)',
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+      });
+      upperBB.setData(bbData.map((d) => ({ time: d!.time, value: d!.upper })));
+      lowerBB.setData(bbData.map((d) => ({ time: d!.time, value: d!.lower })));
     } else {
       const lineSeries = chart.addSeries(LineSeries, {
         color: '#3B82F6',
         lineWidth: 2,
       });
-      lineSeries.setData(data.map(d => ({ time: d.time, value: d.close })));
-      
+      lineSeries.setData(data.map((d) => ({ time: d.time, value: d.close })));
+
       // Add area for line chart
       const areaSeries = chart.addSeries(AreaSeries, {
         topColor: 'rgba(59, 130, 246, 0.3)',
@@ -93,7 +114,7 @@ export const StockChart: React.FC<StockChartProps> = ({ data, mode, height = 400
         lineColor: 'transparent',
         lineWidth: 1,
       });
-      areaSeries.setData(data.map(d => ({ time: d.time, value: d.close })));
+      areaSeries.setData(data.map((d) => ({ time: d.time, value: d.close })));
     }
 
     // Add Volume bars
@@ -112,11 +133,13 @@ export const StockChart: React.FC<StockChartProps> = ({ data, mode, height = 400
       },
     });
 
-    volumeSeries.setData(data.map(d => ({
-      time: d.time,
-      value: d.volume,
-      color: d.close >= d.open ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)',
-    })));
+    volumeSeries.setData(
+      data.map((d) => ({
+        time: d.time,
+        value: d.volume,
+        color: d.close >= d.open ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)',
+      }))
+    );
 
     const handleResize = () => {
       if (chartContainerRef.current) {

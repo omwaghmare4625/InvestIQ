@@ -1,26 +1,32 @@
 import { Router, Request, Response } from 'express';
 import { authMiddleware } from '../middleware/auth.ts';
-import { alphaVantageClient } from '../services/alphavantage.ts';
+import { yahooFinanceClient } from '../services/yahooFinance.ts';
 import { cacheService } from '../services/cacheService.ts';
 import { getPortfolio, getWatchlist } from '../store.ts';
 
 const router = Router();
 
 // ─── Stock Metadata (for reference/display) ───────────────────────────
-const stockMetadata: Record<string, { name: string; category: string; baseCurrency: 'INR' | 'USD' }> = {
-  RELIANCE: { name: 'Reliance Industries', category: 'Indian Stocks', baseCurrency: 'INR' },
-  TCS: { name: 'Tata Consultancy Services', category: 'Indian Stocks', baseCurrency: 'INR' },
-  HDFCBANK: { name: 'HDFC Bank Ltd', category: 'Indian Stocks', baseCurrency: 'INR' },
-  INFY: { name: 'Infosys Ltd', category: 'Indian Stocks', baseCurrency: 'INR' },
-  ICICIBANK: { name: 'ICICI Bank Ltd', category: 'Indian Stocks', baseCurrency: 'INR' },
-  AAPL: { name: 'Apple Inc.', category: 'US Stocks', baseCurrency: 'USD' },
-  MSFT: { name: 'Microsoft Corp.', category: 'US Stocks', baseCurrency: 'USD' },
-  TSLA: { name: 'Tesla, Inc.', category: 'US Stocks', baseCurrency: 'USD' },
-  GOOGL: { name: 'Alphabet Inc.', category: 'US Stocks', baseCurrency: 'USD' },
-  NVDA: { name: 'NVIDIA Corp.', category: 'US Stocks', baseCurrency: 'USD' },
-  SPY: { name: 'SPDR S&P 500 ETF Trust', category: 'ETFs', baseCurrency: 'USD' },
-  NIFTYBEES: { name: 'Nippon India Nifty ETF', category: 'ETFs', baseCurrency: 'INR' },
+// Added .NS suffix for Indian stocks to work with Yahoo Finance
+const stockMetadata: Record<string, { name: string; category: string; baseCurrency: 'INR' | 'USD'; yahooSymbol: string }> = {
+  RELIANCE: { name: 'Reliance Industries', category: 'Indian Stocks', baseCurrency: 'INR', yahooSymbol: 'RELIANCE.NS' },
+  TCS: { name: 'Tata Consultancy Services', category: 'Indian Stocks', baseCurrency: 'INR', yahooSymbol: 'TCS.NS' },
+  HDFCBANK: { name: 'HDFC Bank Ltd', category: 'Indian Stocks', baseCurrency: 'INR', yahooSymbol: 'HDFCBANK.NS' },
+  INFY: { name: 'Infosys Ltd', category: 'Indian Stocks', baseCurrency: 'INR', yahooSymbol: 'INFY.NS' },
+  ICICIBANK: { name: 'ICICI Bank Ltd', category: 'Indian Stocks', baseCurrency: 'INR', yahooSymbol: 'ICICIBANK.NS' },
+  AAPL: { name: 'Apple Inc.', category: 'US Stocks', baseCurrency: 'USD', yahooSymbol: 'AAPL' },
+  MSFT: { name: 'Microsoft Corp.', category: 'US Stocks', baseCurrency: 'USD', yahooSymbol: 'MSFT' },
+  TSLA: { name: 'Tesla, Inc.', category: 'US Stocks', baseCurrency: 'USD', yahooSymbol: 'TSLA' },
+  GOOGL: { name: 'Alphabet Inc.', category: 'US Stocks', baseCurrency: 'USD', yahooSymbol: 'GOOGL' },
+  NVDA: { name: 'NVIDIA Corp.', category: 'US Stocks', baseCurrency: 'USD', yahooSymbol: 'NVDA' },
+  SPY: { name: 'SPDR S&P 500 ETF Trust', category: 'ETFs', baseCurrency: 'USD', yahooSymbol: 'SPY' },
+  NIFTYBEES: { name: 'Nippon India Nifty ETF', category: 'ETFs', baseCurrency: 'INR', yahooSymbol: 'NIFTYBEES.NS' },
 };
+
+// Helper to get Yahoo symbol from local symbol
+function getYahooSymbol(symbol: string): string {
+  return stockMetadata[symbol.toUpperCase()]?.yahooSymbol || symbol;
+}
 
 // ─── Helper: Get unique symbols from portfolio + watchlist ──────────────
 async function getUserStocks(email: string): Promise<Set<string>> {
@@ -49,15 +55,16 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
     const email = req.user!.email;
     const knownSymbols = Object.keys(stockMetadata);
 
-    console.log(`📊 Fetching quotes for ${knownSymbols.length} known stocks...`);
+    console.log(`📊 Fetching quotes for ${knownSymbols.length} known stocks via Yahoo Finance...`);
 
     // Fetch quotes for all known symbols (cached first)
     const quotePromises = knownSymbols.map(async (symbol) => {
       try {
+        const yahooSymbol = getYahooSymbol(symbol);
         const quote = await cacheService.getOrFetch(
           symbol,
           'quote',
-          () => alphaVantageClient.getGlobalQuote(symbol),
+          () => yahooFinanceClient.getQuote(yahooSymbol),
           email
         );
         return quote ? { symbol, quote } : null;
@@ -86,16 +93,13 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
         };
       });
 
-    console.log(
-      `📈 Stock quotes fetched: ${marketData.length} results | Requests today: ${alphaVantageClient.getRequestsToday()} / ${process.env.ALPHA_VANTAGE_DAILY_LIMIT || '25'}`
-    );
+    console.log(`📈 Stock quotes fetched: ${marketData.length} results`);
 
     res.json(marketData);
   } catch (error: any) {
     console.error('Markets error:', error.message);
     res.status(500).json({
-      error: error.message || 'Failed to fetch market data',
-      remaining: alphaVantageClient.getRemainingRequests(),
+      error: error.message || 'Failed to fetch market data'
     });
   }
 });
@@ -105,14 +109,15 @@ router.get('/:symbol', authMiddleware, async (req: Request, res: Response) => {
   try {
     const symbol = req.params.symbol.toUpperCase();
     const email = req.user!.email;
+    const yahooSymbol = getYahooSymbol(symbol);
 
-    console.log(`📈 Fetching details for ${symbol}`);
+    console.log(`📈 Fetching details for ${symbol} (${yahooSymbol})`);
 
     // Get quote
     const quote = await cacheService.getOrFetch(
       symbol,
       'quote',
-      () => alphaVantageClient.getGlobalQuote(symbol),
+      () => yahooFinanceClient.getQuote(yahooSymbol),
       email
     );
 
@@ -126,11 +131,14 @@ router.get('/:symbol', authMiddleware, async (req: Request, res: Response) => {
       baseCurrency: 'USD',
     };
 
-    // Get historical data (optional - only if user specifically requests chart)
+    // Get historical data (last 100 days)
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 150); // Get more than 100 to be safe
+
     const chartData = await cacheService.getOrFetch(
       symbol,
       'daily',
-      () => alphaVantageClient.getDaily(symbol),
+      () => yahooFinanceClient.getHistory(yahooSymbol, startDate, '1d'),
       email
     );
 
@@ -146,15 +154,10 @@ router.get('/:symbol', authMiddleware, async (req: Request, res: Response) => {
       baseCurrency: metadata.baseCurrency,
       chart: chartData?.timeSeries || [],
     });
-
-    console.log(
-      `📈 Requests today: ${alphaVantageClient.getRequestsToday()} / ${process.env.ALPHA_VANTAGE_DAILY_LIMIT || '25'}`
-    );
   } catch (error: any) {
     console.error('Stock detail error:', error.message);
     res.status(500).json({
-      error: error.message || 'Failed to fetch stock details',
-      remaining: alphaVantageClient.getRemainingRequests(),
+      error: error.message || 'Failed to fetch stock details'
     });
   }
 });
@@ -165,18 +168,24 @@ router.get('/:symbol/chart', authMiddleware, async (req: Request, res: Response)
     const symbol = req.params.symbol.toUpperCase();
     const { interval } = req.query;
     const email = req.user!.email;
+    const yahooSymbol = getYahooSymbol(symbol);
 
     const dataType = interval === 'intraday' ? 'intraday' : 'daily';
+    const yahooInterval = interval === 'intraday' ? '5m' : '1d';
 
-    console.log(`📊 Fetching ${dataType} chart for ${symbol}`);
+    console.log(`📊 Fetching ${dataType} chart for ${symbol} (${yahooSymbol})`);
+
+    const startDate = new Date();
+    if (dataType === 'intraday') {
+      startDate.setDate(startDate.getDate() - 7); // Last 7 days for intraday
+    } else {
+      startDate.setDate(startDate.getDate() - 365); // Last year for daily
+    }
 
     const chartData = await cacheService.getOrFetch(
       symbol,
       dataType,
-      () =>
-        dataType === 'intraday'
-          ? alphaVantageClient.getIntraday(symbol, '5min')
-          : alphaVantageClient.getDaily(symbol),
+      () => yahooFinanceClient.getHistory(yahooSymbol, startDate, yahooInterval as any),
       email
     );
 
@@ -185,15 +194,10 @@ router.get('/:symbol/chart', authMiddleware, async (req: Request, res: Response)
     }
 
     res.json(chartData);
-
-    console.log(
-      `📈 Requests today: ${alphaVantageClient.getRequestsToday()} / ${process.env.ALPHA_VANTAGE_DAILY_LIMIT || '25'}`
-    );
   } catch (error: any) {
     console.error('Chart error:', error.message);
     res.status(500).json({
-      error: error.message || 'Failed to fetch chart data',
-      remaining: alphaVantageClient.getRemainingRequests(),
+      error: error.message || 'Failed to fetch chart data'
     });
   }
 });

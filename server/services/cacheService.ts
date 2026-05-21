@@ -39,7 +39,7 @@ class CacheService {
     email?: string
   ): Promise<void> {
     try {
-      const cacheHours = parseInt(process.env.ALPHA_VANTAGE_CACHE_HOURS || '4');
+      const cacheHours = parseInt(process.env.MARKET_DATA_CACHE_HOURS || process.env.ALPHA_VANTAGE_CACHE_HOURS || '4');
       const expiresAt = new Date(Date.now() + cacheHours * 60 * 60 * 1000);
 
       await MarketCache.findOneAndUpdate(
@@ -56,7 +56,7 @@ class CacheService {
           lastUpdated: new Date(),
           expiresAt,
         },
-        { upsert: true, new: true }
+        { upsert: true, returnDocument: 'after' }
       );
 
       console.log(

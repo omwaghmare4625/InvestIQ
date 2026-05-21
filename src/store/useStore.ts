@@ -1,5 +1,13 @@
 import { create } from 'zustand';
-import { authApi, portfolioApi, goalsApi, watchlistApi, alertsApi, setToken, clearToken } from '@/services/api';
+import {
+  authApi,
+  portfolioApi,
+  goalsApi,
+  watchlistApi,
+  alertsApi,
+  setToken,
+  clearToken,
+} from '@/services/api';
 
 export interface User {
   name: string;
@@ -57,6 +65,12 @@ interface AppState {
   transactions: Transaction[];
   watchlist: string[];
   alerts: AlertItem[];
+  advisorMessages: Array<{
+    id: string;
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: string;
+  }>;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, name: string, password: string, currency: 'INR' | 'USD') => Promise<void>;
   logout: () => void;
@@ -69,6 +83,10 @@ interface AppState {
   updateHoldingQty: (symbol: string, qty: number) => void;
   addAlert: (alert: Omit<AlertItem, 'id' | 'createdAt'>) => Promise<void>;
   removeAlert: (id: string) => void;
+  setAdvisorMessages: (
+    msgs: Array<{ id: string; role: 'user' | 'assistant'; content: string; timestamp: string }>
+  ) => void;
+  clearAdvisorMessages: () => void;
   hydrateFromServer: () => Promise<void>;
 }
 
@@ -81,6 +99,7 @@ export const useStore = create<AppState>((set, get) => ({
   transactions: [],
   watchlist: [],
   alerts: [],
+  advisorMessages: [],
 
   login: async (email: string, password: string) => {
     const { token, user } = await authApi.login({ email, password });
@@ -139,6 +158,7 @@ export const useStore = create<AppState>((set, get) => ({
       transactions: [],
       watchlist: [],
       alerts: [],
+      advisorMessages: [],
     });
   },
 
@@ -169,26 +189,30 @@ export const useStore = create<AppState>((set, get) => ({
   addGoal: (goal) => {
     set((state) => ({ goals: [...state.goals, goal] }));
     // Fire-and-forget server sync
-    goalsApi.create({
-      title: goal.title,
-      target: goal.target,
-      icon: goal.icon,
-      baseCurrency: goal.baseCurrency,
-    }).catch(console.error);
+    goalsApi
+      .create({
+        title: goal.title,
+        target: goal.target,
+        icon: goal.icon,
+        baseCurrency: goal.baseCurrency,
+      })
+      .catch(console.error);
   },
 
   updateGoal: (goal) => {
     set((state) => ({
-      goals: state.goals.map(g => g.id === goal.id ? goal : g),
+      goals: state.goals.map((g) => (g.id === goal.id ? goal : g)),
     }));
     // Fire-and-forget server sync
-    goalsApi.update(goal.id, {
-      title: goal.title,
-      target: goal.target,
-      icon: goal.icon,
-      current: goal.current,
-      monthlyContribution: goal.monthlyContribution,
-    }).catch(console.error);
+    goalsApi
+      .update(goal.id, {
+        title: goal.title,
+        target: goal.target,
+        icon: goal.icon,
+        current: goal.current,
+        monthlyContribution: goal.monthlyContribution,
+      })
+      .catch(console.error);
   },
 
   toggleWatchlist: (symbol) => {
@@ -210,12 +234,10 @@ export const useStore = create<AppState>((set, get) => ({
   updateHoldingQty: (symbol: string, qty: number) => {
     set((state) => {
       if (qty <= 0) {
-        return { portfolio: state.portfolio.filter(h => h.symbol !== symbol) };
+        return { portfolio: state.portfolio.filter((h) => h.symbol !== symbol) };
       }
       return {
-        portfolio: state.portfolio.map(h =>
-          h.symbol === symbol ? { ...h, qty } : h
-        ),
+        portfolio: state.portfolio.map((h) => (h.symbol === symbol ? { ...h, qty } : h)),
       };
     });
     // Fire-and-forget server sync
@@ -238,15 +260,20 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   removeAlert: (id: string) => {
-    set((state) => ({ alerts: state.alerts.filter(a => a.id !== id) }));
+    set((state) => ({ alerts: state.alerts.filter((a) => a.id !== id) }));
     // Fire-and-forget server sync
     alertsApi.delete(id).catch(console.error);
   },
 
+  setAdvisorMessages: (msgs) => set({ advisorMessages: msgs }),
+  clearAdvisorMessages: () => set({ advisorMessages: [] }),
+
   executeTrade: (trade: Omit<Transaction, 'id' | 'timestamp' | 'baseCurrency'>) => {
     // Optimistic local update
     set((state) => {
-      const baseCurrency = ['AAPL', 'MSFT', 'TSLA', 'GOOGL', 'NVDA', 'SPY'].includes(trade.symbol) ? 'USD' : 'INR';
+      const baseCurrency = ['AAPL', 'MSFT', 'TSLA', 'GOOGL', 'NVDA', 'SPY'].includes(trade.symbol)
+        ? 'USD'
+        : 'INR';
       const newTransaction: Transaction = {
         ...trade,
         id: Math.random().toString(36).substr(2, 9),
@@ -259,10 +286,10 @@ export const useStore = create<AppState>((set, get) => ({
 
       if (trade.type === 'BUY') {
         newBalance -= trade.total;
-        const existing = newPortfolio.find(h => h.symbol === trade.symbol);
+        const existing = newPortfolio.find((h) => h.symbol === trade.symbol);
         if (existing) {
           const totalQty = existing.qty + trade.qty;
-          const totalCost = (existing.qty * existing.avgCost) + (trade.qty * trade.price);
+          const totalCost = existing.qty * existing.avgCost + trade.qty * trade.price;
           existing.avgCost = totalCost / totalQty;
           existing.qty = totalQty;
         } else {
@@ -277,11 +304,11 @@ export const useStore = create<AppState>((set, get) => ({
         }
       } else {
         newBalance += trade.total;
-        const existing = newPortfolio.find(h => h.symbol === trade.symbol);
+        const existing = newPortfolio.find((h) => h.symbol === trade.symbol);
         if (existing) {
           existing.qty -= trade.qty;
           if (existing.qty <= 0) {
-            newPortfolio = newPortfolio.filter(h => h.symbol !== trade.symbol);
+            newPortfolio = newPortfolio.filter((h) => h.symbol !== trade.symbol);
           }
         }
       }
@@ -294,12 +321,14 @@ export const useStore = create<AppState>((set, get) => ({
     });
 
     // Fire-and-forget server sync
-    portfolioApi.trade({
-      symbol: trade.symbol,
-      type: trade.type,
-      qty: trade.qty,
-      price: trade.price,
-      total: trade.total,
-    }).catch(console.error);
+    portfolioApi
+      .trade({
+        symbol: trade.symbol,
+        type: trade.type,
+        qty: trade.qty,
+        price: trade.price,
+        total: trade.total,
+      })
+      .catch(console.error);
   },
 }));

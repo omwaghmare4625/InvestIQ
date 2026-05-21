@@ -1,45 +1,95 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { Plus, Settings, MoreHorizontal, TrendingUp, Wallet, PieChart as PieIcon, ArrowUpRight, History, ArrowDownRight, Eye, Pencil } from 'lucide-react';
+import {
+  Plus,
+  Settings,
+  MoreHorizontal,
+  TrendingUp,
+  Wallet,
+  PieChart as PieIcon,
+  ArrowUpRight,
+  History,
+  ArrowDownRight,
+  Eye,
+  Pencil,
+} from 'lucide-react';
 import { Card, Button, Dialog, Input } from '@/components/ui/Common';
 import { useStore } from '@/store/useStore';
 import { cn, formatCurrency, convertValue } from '@/lib/utils';
+import { motion } from 'motion/react';
 import { toast } from 'sonner';
 
-const allocationData = [
-  { name: 'Stocks', value: 60, color: '#3B82F6' },
-  { name: 'ETFs', value: 25, color: '#8B5CF6' },
-  { name: 'Crypto', value: 10, color: '#10B981' },
-  { name: 'Mutual Funds', value: 5, color: '#F59E0B' },
-];
-
+const COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#06B6D4'];
 export default function Portfolio() {
   const navigate = useNavigate();
-  const { user, portfolio, balance, transactions, addFunds, updateHoldingQty } = useStore();
+  const user = useStore((state) => state.user);
+  const portfolio = useStore((state) => state.portfolio);
+  const balance = useStore((state) => state.balance);
+  const transactions = useStore((state) => state.transactions);
+  const addFunds = useStore((state) => state.addFunds);
+  const updateHoldingQty = useStore((state) => state.updateHoldingQty);
+
+
   const [isAddFundsOpen, setIsAddFundsOpen] = useState(false);
   const [fundAmount, setFundAmount] = useState('10000');
-  
+
   // Edit holding state
   const [isEditHoldingOpen, setIsEditHoldingOpen] = useState(false);
   const [editSymbol, setEditSymbol] = useState('');
   const [editName, setEditName] = useState('');
   const [editQty, setEditQty] = useState('');
-  
-  const totalValue = portfolio.reduce((acc, item) => acc + (item.qty * convertValue(item.currentPrice, item.baseCurrency, user?.currency || 'INR')), 0);
-  const totalCost = portfolio.reduce((acc, item) => acc + (item.qty * convertValue(item.avgCost, item.baseCurrency, user?.currency || 'INR')), 0);
-  const totalPL = totalValue - totalCost;
-  const plPercent = totalCost > 0 ? (totalPL / totalCost) * 100 : 0;
+
+  const { totalValue, totalCost, totalPL, plPercent } = React.useMemo(() => {
+    if (!user) return { totalValue: 0, totalCost: 0, totalPL: 0, plPercent: 0 };
+
+    const totalValue = portfolio.reduce(
+      (acc, item) =>
+        acc + item.qty * convertValue(item.currentPrice, item.baseCurrency, user.currency),
+      0
+    );
+    const totalCost = portfolio.reduce(
+      (acc, item) => acc + item.qty * convertValue(item.avgCost, item.baseCurrency, user.currency),
+      0
+    );
+    const totalPL = totalValue - totalCost;
+    const plPercent = totalCost > 0 ? (totalPL / totalCost) * 100 : 0;
+
+    return { totalValue, totalCost, totalPL, plPercent };
+  }, [portfolio, user]);
+
+  const dynamicAllocationData = React.useMemo(() => {
+    if (portfolio.length === 0 || !user) {
+      return [{ name: 'No Assets', value: 100, color: '#2A3657' }];
+    }
+
+    const sorted = [...portfolio].sort((a, b) => {
+      const valA = a.qty * convertValue(a.currentPrice, a.baseCurrency, user.currency);
+      const valB = b.qty * convertValue(b.currentPrice, b.baseCurrency, user.currency);
+      return valB - valA;
+    });
+
+    return sorted.map((item, idx) => {
+      const val = item.qty * convertValue(item.currentPrice, item.baseCurrency, user.currency);
+      return {
+        name: item.symbol,
+        value: Number(((val / (totalValue || 1)) * 100).toFixed(1)),
+        color: COLORS[idx % COLORS.length],
+      };
+    });
+  }, [portfolio, totalValue, user]);
 
   const handleAddFunds = () => {
     const amount = parseFloat(fundAmount);
     if (!isNaN(amount) && amount > 0) {
       addFunds(amount);
-      toast.success(`${formatCurrency(amount, user?.currency)} added to your balance`);
+      toast.success(`${formatCurrency(amount, user?.currency)} infused`, {
+        description: 'Asset liquidity re-initialized',
+      });
       setIsAddFundsOpen(false);
       setFundAmount('10000');
     } else {
-      toast.error('Please enter a valid amount');
+      toast.error('Invalid amount', { description: 'Please enter a valid amount' });
     }
   };
 
@@ -53,98 +103,145 @@ export default function Portfolio() {
   const handleUpdateHolding = () => {
     const qty = parseInt(editQty);
     if (isNaN(qty) || qty < 0) {
-      toast.error('Please enter a valid quantity (0 or more)');
+      toast.error('Invalid quantity', { description: 'Please enter a valid number (0 or more)' });
       return;
     }
     updateHoldingQty(editSymbol, qty);
     if (qty === 0) {
-      toast.success(`${editSymbol} removed from your portfolio`);
+      toast.success('Asset liquidated', { description: `${editSymbol} position closed` });
     } else {
-      toast.success(`${editSymbol} quantity updated to ${qty}`);
+      toast.success('Vector adjusted', {
+        description: `${editSymbol} quantity re-indexed to ${qty}`,
+      });
     }
     setIsEditHoldingOpen(false);
   };
 
+  if (!user) return null;
+
   return (
-    <div className="space-y-8 pb-10">
-      <header className="flex items-center justify-between">
+    <motion.div
+      className="space-y-12 pb-20"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Your Portfolio</h1>
-          <p className="text-text-muted mt-1">Comprehensive view of all your assets and performance.</p>
+          <h1 className="text-4xl font-display font-semibold tracking-normal text-text-primary mb-2">
+            Wealth Portfolio
+          </h1>
+          <p className="text-text-dim text-sm font-medium text-text-muted">Asset Management</p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-6">
           <div className="text-right">
-            <p className="text-xs font-bold text-text-muted uppercase tracking-widest">Available Balance</p>
-            <p className="text-xl font-bold font-numbers text-primary">{formatCurrency(balance, user?.currency)}</p>
+            <p className="text-[10px] font-semibold text-text-dim tracking-wide mb-1">
+              Liquid Capital
+            </p>
+            <p className="text-2xl font-display font-semibold text-primary tracking-normal">
+              {formatCurrency(balance, user?.currency)}
+            </p>
           </div>
-          <Button className="gap-2" onClick={() => setIsAddFundsOpen(true)}>
+          <Button
+            className="gap-2.5 px-6 py-6 bg-primary text-background hover:shadow-glow transition-all duration-300 rounded-md"
+            onClick={() => setIsAddFundsOpen(true)}
+          >
             <Plus className="w-4 h-4" />
-            Add Funds
+            <span className="text-[10px] font-semibold tracking-wide">Infuse Capital</span>
           </Button>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-1 flex flex-col justify-center p-8 bg-primary/5 border-primary/20">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <Card className="lg:col-span-1 flex flex-col justify-center p-10 glass-card bg-surface-low/30 backdrop-blur-3xl border-border shadow-glow">
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center border border-primary/20 shadow-glow-sm">
               <Wallet className="w-6 h-6 text-primary" />
             </div>
-            <span className="text-sm font-bold text-text-muted uppercase tracking-widest">Total Assets</span>
+            <span className="text-[10px] font-semibold text-text-dim tracking-wide">
+              Aggregate Assets
+            </span>
           </div>
-          <h2 className="text-4xl font-bold font-numbers">{formatCurrency(totalValue, user?.currency)}</h2>
-          <div className="flex items-center gap-2 mt-4">
-            <div className={cn(
-              "flex items-center gap-1 px-2 py-1 rounded-lg text-sm font-bold",
-              totalPL >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger"
-            )}>
-              {totalPL >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-              {formatCurrency(totalPL, user?.currency)} ({plPercent.toFixed(1)}%)
+          <h2 className="text-5xl font-display font-semibold text-text-primary tracking-normal mb-6">
+            {formatCurrency(totalValue, user?.currency)}
+          </h2>
+          <div className="flex items-center gap-3">
+            <div
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1 rounded-sm text-[11px] font-semibold',
+                totalPL >= 0
+                  ? 'text-tertiary bg-tertiary/5 border border-tertiary/10'
+                  : 'text-danger bg-danger/5 border border-danger/10'
+              )}
+            >
+              {totalPL >= 0 ? (
+                <ArrowUpRight className="w-3.5 h-3.5" />
+              ) : (
+                <ArrowDownRight className="w-3.5 h-3.5" />
+              )}
+              {formatCurrency(Math.abs(totalPL), user?.currency)} ({plPercent.toFixed(1)}%)
             </div>
-            <span className="text-text-muted text-sm">since Jan 1</span>
+            <span className="text-text-dim/40 text-[10px] font-semibold tracking-wide">
+              Intrinsic Alpha
+            </span>
           </div>
         </Card>
 
-        <Card className="lg:col-span-2 p-0 overflow-hidden">
-          <div className="p-6 border-b border-border/30 flex items-center justify-between">
-            <h3 className="font-bold flex items-center gap-2">
-              <PieIcon className="w-5 h-5 text-accent" />
-              Asset Allocation
+        <Card className="lg:col-span-2 p-0 overflow-hidden glass-card border-border bg-surface-low/50 backdrop-blur-2xl">
+          <div className="p-8 border-b border-border flex items-center justify-between bg-surface-hover">
+            <h3 className="font-display font-semibold text-lg flex items-center gap-3 text-text-primary">
+              <PieIcon className="w-5 h-5 text-primary" />
+              Capital Allocation
             </h3>
-            <Button variant="ghost" size="sm">Details</Button>
+            <button className="text-[10px] font-semibold tracking-wide text-text-dim hover:text-text-primary transition-colors">
+              Analytical View
+            </button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 items-center p-6 gap-8">
-            <div className="h-[200px]">
+          <div className="grid grid-cols-1 md:grid-cols-2 items-center p-10 gap-12">
+            <div className="h-[240px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={allocationData}
+                    data={dynamicAllocationData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
+                    innerRadius={70}
+                    outerRadius={95}
+                    paddingAngle={8}
                     dataKey="value"
+                    stroke="none"
                   >
-                    {allocationData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    {dynamicAllocationData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.8} />
                     ))}
                   </Pie>
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#131B2E', border: '1px solid #2A3657', borderRadius: '8px' }}
-                    itemStyle={{ color: '#F8FAFC' }}
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#131313',
+                      border: '1px solid rgba(255,255,255,0.05)',
+                      borderRadius: '8px',
+                      padding: '12px',
+                    }}
+                    itemStyle={{ color: '#fff', fontSize: '11px', fontWeight: '800' }}
                   />
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <div className="space-y-4">
-              {allocationData.map((item) => (
-                <div key={item.name} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="text-sm font-medium text-text-secondary">{item.name}</span>
+            <div className="space-y-5">
+              {dynamicAllocationData.map((item) => (
+                <div key={item.name} className="flex items-center justify-between group">
+                  <div className="flex items-center gap-4">
+                    <div
+                      className="w-2.5 h-2.5 rounded-full shadow-glow-sm"
+                      style={{ backgroundColor: item.color }}
+                    />
+                    <span className="text-[11px] font-semibold tracking-wide text-text-dim/70 hover:text-text-primary transition-colors">
+                      {item.name}
+                    </span>
                   </div>
-                  <span className="text-sm font-bold font-numbers">{item.value}%</span>
+                  <span className="text-sm font-display font-semibold text-text-primary tracking-normal">
+                    {item.value}%
+                  </span>
                 </div>
               ))}
             </div>
@@ -152,140 +249,222 @@ export default function Portfolio() {
         </Card>
       </div>
 
-      <Card className="p-0 overflow-hidden">
-        <div className="p-6 border-b border-border/30 flex items-center justify-between">
-          <h3 className="font-bold text-lg">Holdings</h3>
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm" className="p-2">
+      <Card className="p-0 overflow-hidden glass-card border-border bg-surface-low/50 backdrop-blur-2xl">
+        <div className="p-8 border-b border-border flex items-center justify-between bg-surface-hover">
+          <h3 className="font-display font-semibold text-xl text-text-primary tracking-normal">
+            Current Holdings
+          </h3>
+          <div className="flex items-center gap-3">
+            <button className="p-3 bg-surface-elevated border border-border rounded-md text-text-dim hover:text-text-primary transition-all">
               <Settings className="w-4 h-4" />
-            </Button>
+            </button>
           </div>
         </div>
+
+        {/* Premium Table */}
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-border/30 text-text-muted uppercase text-[10px] font-bold tracking-widest">
-                <th className="py-4 px-6">Asset</th>
-                <th className="py-4 px-6">Quantity</th>
-                <th className="py-4 px-6">Avg Cost</th>
-                <th className="py-4 px-6">Current</th>
-                <th className="py-4 px-6">P/L</th>
-                <th className="py-4 px-6">% Return</th>
-                <th className="py-4 px-6 text-right">Actions</th>
+              <tr className="border-b border-border text-text-dim text-[10px] font-semibold tracking-wide bg-surface-hover">
+                <th className="py-6 px-10">Asset</th>
+                <th className="py-6 px-8">Weight</th>
+                <th className="py-6 px-8">Avg Cost</th>
+                <th className="py-6 px-8">Current Price</th>
+                <th className="py-6 px-8">Performance</th>
+                <th className="py-6 px-8">Return</th>
+                <th className="py-6 px-10 text-right">Deployment</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/20">
-              {portfolio.map((item) => {
-                const currentVal = item.qty * convertValue(item.currentPrice, item.baseCurrency, user?.currency || 'INR');
-                const costVal = item.qty * convertValue(item.avgCost, item.baseCurrency, user?.currency || 'INR');
-                const pl = currentVal - costVal;
-                const ret = costVal > 0 ? (pl / costVal) * 100 : 0;
+            <tbody className="divide-y divide-border">
+              {portfolio.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-24 text-center">
+                    <div className="flex flex-col items-center gap-8">
+                      <div className="w-20 h-20 bg-surface-elevated border border-border rounded-full flex items-center justify-center opacity-50 shadow-glow-sm">
+                        <Wallet className="w-10 h-10 text-text-dim" />
+                      </div>
+                      <div>
+                        <h4 className="font-display font-semibold text-text-primary mb-2 tracking-wide text-xs">
+                          No Vectors Initialized
+                        </h4>
+                        <p className="text-[13px] text-text-dim/50 max-w-[280px] font-medium leading-relaxed mx-auto">
+                          Redeploy capital through the market dashboard to initialize
+                          holdings.
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        className="border-border text-[10px] font-semibold tracking-wide px-8 py-5"
+                        onClick={() => navigate('/markets')}
+                      >
+                        Browse Markets
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                portfolio.map((item) => {
+                  const currentVal =
+                    item.qty * convertValue(item.currentPrice, item.baseCurrency, user.currency);
+                  const costVal =
+                    item.qty * convertValue(item.avgCost, item.baseCurrency, user.currency);
+                  const pl = currentVal - costVal;
+                  const ret = costVal > 0 ? (pl / costVal) * 100 : 0;
 
-                return (
-                  <tr key={item.symbol} className="hover:bg-surface-elevated/30 transition-colors">
-                    <td className="py-4 px-6">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-surface-elevated rounded-lg flex items-center justify-center font-bold text-xs">
-                          {item.symbol.slice(0, 2)}
+                  return (
+                    <tr key={item.symbol} className="hover:bg-surface-elevated transition-colors group">
+                      <td className="py-6 px-10">
+                        <div className="flex items-center gap-5">
+                          <div className="w-12 h-12 bg-surface-elevated rounded-lg border border-border flex items-center justify-center font-medium text-sm text-primary group-hover:border-primary/30 group-hover:bg-primary/5 transition-all duration-300">
+                            {item.symbol.slice(0, 2)}
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm text-text-primary tracking-normal">
+                              {item.symbol}
+                            </p>
+                            <p className="text-[11px] text-text-dim/50 font-medium tracking-wide">
+                              {item.name}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-bold text-sm">{item.symbol}</p>
-                          <p className="text-xs text-text-muted">{item.name}</p>
+                      </td>
+                      <td className="py-6 px-8 text-text-primary font-medium text-sm tracking-normal">
+                        {item.qty} units
+                      </td>
+                      <td className="py-6 px-8 text-text-dim font-medium text-[13px]">
+                        {formatCurrency(
+                          convertValue(item.avgCost, item.baseCurrency, user.currency),
+                          user?.currency
+                        )}
+                      </td>
+                      <td className="py-6 px-8 text-text-primary font-medium text-sm tracking-normal">
+                        {formatCurrency(
+                          convertValue(item.currentPrice, item.baseCurrency, user.currency),
+                          user?.currency
+                        )}
+                      </td>
+                      <td
+                        className={cn(
+                          'py-6 px-8 font-medium text-sm tracking-normal',
+                          pl >= 0 ? 'text-tertiary' : 'text-danger'
+                        )}
+                      >
+                        {pl >= 0 ? '+' : ''}
+                        {formatCurrency(pl, user?.currency)}
+                      </td>
+                      <td className="py-6 px-8">
+                        <div
+                          className={cn(
+                            'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-[11px] font-semibold',
+                            ret >= 0
+                              ? 'bg-tertiary/5 text-tertiary border border-tertiary/10'
+                              : 'bg-danger/5 text-danger border border-danger/10'
+                          )}
+                        >
+                          {ret >= 0 ? (
+                            <TrendingUp className="w-3.5 h-3.5" />
+                          ) : (
+                            <MoreHorizontal className="w-3.5 h-3.5" />
+                          )}
+                          {Math.abs(ret).toFixed(1)}%
                         </div>
-                      </div>
-                    </td>
-                    <td className="py-4 px-6 font-numbers text-sm">{item.qty}</td>
-                    <td className="py-4 px-6 font-numbers text-sm">{formatCurrency(convertValue(item.avgCost, item.baseCurrency, user?.currency || 'INR'), user?.currency)}</td>
-                    <td className="py-4 px-6 font-numbers text-sm">{formatCurrency(convertValue(item.currentPrice, item.baseCurrency, user?.currency || 'INR'), user?.currency)}</td>
-                    <td className={cn(
-                      "py-4 px-6 font-numbers text-sm font-bold",
-                      pl >= 0 ? "text-success" : "text-danger"
-                    )}>
-                      {pl >= 0 ? '+' : ''}{formatCurrency(pl, user?.currency)}
-                    </td>
-                    <td className="py-4 px-6">
-                      <div className={cn(
-                        "inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold",
-                        ret >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger"
-                      )}>
-                        {ret >= 0 ? <TrendingUp className="w-3 h-3" /> : <MoreHorizontal className="w-3 h-3" />}
-                        {Math.abs(ret).toFixed(1)}%
-                      </div>
-                    </td>
-                    <td className="py-4 px-6 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button 
-                          variant="secondary" 
-                          size="sm" 
-                          className="p-2"
-                          onClick={() => navigate(`/stock/${item.symbol}`)}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        <Button 
-                          variant="secondary" 
-                          size="sm" 
-                          className="p-2"
-                          onClick={() => openEditHolding(item.symbol, item.name, item.qty)}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                      </td>
+                      <td className="py-6 px-10 text-right">
+                        <div className="flex items-center justify-end gap-3 opacity-20 group-hover:opacity-100 transition-opacity duration-300">
+                          <button
+                            className="p-3 bg-surface-elevated border border-border rounded-md text-text-dim hover:text-text-primary hover:border-primary/40 transition-all"
+                            onClick={() => navigate(`/stock/${item.symbol}`)}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            className="p-3 bg-surface-elevated border border-border rounded-md text-text-dim hover:text-text-primary hover:border-primary/40 transition-all focus:outline-none"
+                            onClick={() => openEditHolding(item.symbol, item.name, item.qty)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
       </Card>
 
-      <Card className="p-0 overflow-hidden">
-        <div className="p-6 border-b border-border/30 flex items-center justify-between">
-          <h3 className="font-bold text-lg flex items-center gap-2">
-            <History className="w-5 h-5 text-primary" />
+      {/* Transaction Log */}
+      <Card className="p-0 overflow-hidden glass-card border-border bg-surface-low/50 backdrop-blur-2xl">
+        <div className="p-8 border-b border-border flex items-center justify-between bg-surface-hover">
+          <h3 className="font-display font-semibold text-xl text-text-primary tracking-normal flex items-center gap-4">
+            <History className="w-6 h-6 text-primary" />
             Transaction History
           </h3>
-          <Button variant="ghost" size="sm">Export CSV</Button>
+          <button
+            className="text-[10px] font-semibold tracking-wide text-text-dim hover:text-text-primary transition-colors"
+            onClick={() => toast.info('Export request queued...')}
+          >
+            Export Protocol
+          </button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-border/30 text-text-muted uppercase text-[10px] font-bold tracking-widest">
-                <th className="py-4 px-6">Date</th>
-                <th className="py-4 px-6">Type</th>
-                <th className="py-4 px-6">Symbol</th>
-                <th className="py-4 px-6">Quantity</th>
-                <th className="py-4 px-6">Price</th>
-                <th className="py-4 px-6 text-right">Total</th>
+              <tr className="border-b border-border text-text-dim text-[10px] font-semibold tracking-wide bg-surface-hover">
+                <th className="py-6 px-10">Timestamp</th>
+                <th className="py-6 px-8">Transaction Type</th>
+                <th className="py-6 px-8">Asset Vector</th>
+                <th className="py-6 px-8">Allocation</th>
+                <th className="py-6 px-8">Unit Value</th>
+                <th className="py-6 px-10 text-right">Aggregate</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/20">
+            <tbody className="divide-y divide-border">
               {transactions.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-text-muted text-sm">
-                    No transactions yet.
+                  <td
+                    colSpan={6}
+                    className="py-16 text-center text-[11px] text-text-dim/40 font-semibold tracking-wide"
+                  >
+                    Log Cache Empty
                   </td>
                 </tr>
               ) : (
                 transactions.map((tx) => (
-                  <tr key={tx.id} className="hover:bg-surface-elevated/30 transition-colors">
-                    <td className="py-4 px-6 text-sm text-text-muted">
+                  <tr key={tx.id} className="hover:bg-surface-elevated transition-colors">
+                    <td className="py-6 px-10 text-[12px] text-text-dim font-medium">
                       {tx.timestamp.toLocaleDateString()}
                     </td>
-                    <td className="py-4 px-6">
-                      <span className={cn(
-                        "px-2 py-1 rounded text-[10px] font-bold uppercase",
-                        tx.type === 'BUY' ? "bg-success/10 text-success" : "bg-danger/10 text-danger"
-                      )}>
+                    <td className="py-6 px-8">
+                      <span
+                        className={cn(
+                          'px-3 py-1 rounded-sm text-xs font-medium',
+                          tx.type === 'BUY'
+                            ? 'bg-tertiary/10 text-tertiary border border-tertiary/10'
+                            : 'bg-danger/10 text-danger border border-danger/10'
+                        )}
+                      >
                         {tx.type}
                       </span>
                     </td>
-                    <td className="py-4 px-6 font-bold text-sm">{tx.symbol}</td>
-                    <td className="py-4 px-6 font-numbers text-sm">{tx.qty}</td>
-                    <td className="py-4 px-6 font-numbers text-sm">{formatCurrency(convertValue(tx.price, tx.baseCurrency, user?.currency || 'INR'), user?.currency)}</td>
-                    <td className="py-4 px-6 text-right font-numbers font-bold text-sm">
-                      {formatCurrency(convertValue(tx.total, tx.baseCurrency, user?.currency || 'INR'), user?.currency)}
+                    <td className="py-6 px-8 font-semibold text-text-primary text-[13px] tracking-normal">
+                      {tx.symbol}
+                    </td>
+                    <td className="py-6 px-8 text-text-dim font-medium text-[13px]">
+                      {tx.qty} units
+                    </td>
+                    <td className="py-6 px-8 text-text-dim font-medium text-[13px]">
+                      {formatCurrency(
+                        convertValue(tx.price, tx.baseCurrency, user.currency),
+                        user?.currency
+                      )}
+                    </td>
+                    <td className="py-6 px-10 text-right font-semibold text-text-primary text-[14px] tracking-normal">
+                      {formatCurrency(
+                        convertValue(tx.total, tx.baseCurrency, user.currency),
+                        user?.currency
+                      )}
                     </td>
                   </tr>
                 ))
@@ -295,16 +474,15 @@ export default function Portfolio() {
         </div>
       </Card>
 
+      {/* Premium Dialogs - Stylized to match */}
+      {/* (Skipping detailed update for simple Dialog contents as they use Common UI, but terminology is updated in methods) */}
+
       {/* Add Funds Dialog */}
-      <Dialog
-        isOpen={isAddFundsOpen}
-        onClose={() => setIsAddFundsOpen(false)}
-        title="Add Funds"
-      >
+      <Dialog isOpen={isAddFundsOpen} onClose={() => setIsAddFundsOpen(false)} title="Add Funds">
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-2">
-              Amount ({user?.currency || 'INR'})
+              Amount ({user.currency})
             </label>
             <Input
               type="number"
@@ -317,18 +495,10 @@ export default function Portfolio() {
             />
           </div>
           <div className="flex gap-3">
-            <Button
-              variant="secondary"
-              className="flex-1"
-              onClick={() => setIsAddFundsOpen(false)}
-            >
+            <Button variant="secondary" className="flex-1" onClick={() => setIsAddFundsOpen(false)}>
               Cancel
             </Button>
-            <Button
-              variant="primary"
-              className="flex-1"
-              onClick={handleAddFunds}
-            >
+            <Button variant="primary" className="flex-1" onClick={handleAddFunds}>
               Add Funds
             </Button>
           </div>
@@ -352,9 +522,7 @@ export default function Portfolio() {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-text-secondary mb-2">
-              Quantity
-            </label>
+            <label className="block text-sm font-medium text-text-secondary mb-2">Quantity</label>
             <Input
               type="number"
               placeholder="Enter new quantity"
@@ -376,16 +544,12 @@ export default function Portfolio() {
             >
               Cancel
             </Button>
-            <Button
-              variant="primary"
-              className="flex-1"
-              onClick={handleUpdateHolding}
-            >
+            <Button variant="primary" className="flex-1" onClick={handleUpdateHolding}>
               Update Quantity
             </Button>
           </div>
         </div>
       </Dialog>
-    </div>
+    </motion.div>
   );
 }

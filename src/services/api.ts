@@ -100,14 +100,22 @@ export const goalsApi = {
       body: JSON.stringify(data),
     }),
 
-  update: (id: string, data: { title?: string; target?: number; icon?: string; current?: number; monthlyContribution?: number }) =>
+  update: (
+    id: string,
+    data: {
+      title?: string;
+      target?: number;
+      icon?: string;
+      current?: number;
+      monthlyContribution?: number;
+    }
+  ) =>
     request<any>(`/goals/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
 
-  delete: (id: string) =>
-    request<any>(`/goals/${id}`, { method: 'DELETE' }),
+  delete: (id: string) => request<any>(`/goals/${id}`, { method: 'DELETE' }),
 };
 
 // ─── Markets API ─────────────────────────────────────────────────────
@@ -162,7 +170,5 @@ export const alertsApi = {
       body: JSON.stringify(data),
     }),
 
-  delete: (id: string) =>
-    request<any>(`/alerts/${id}`, { method: 'DELETE' }),
+  delete: (id: string) => request<any>(`/alerts/${id}`, { method: 'DELETE' }),
 };
-

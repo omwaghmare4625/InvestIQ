@@ -5,8 +5,26 @@ import { useStore, Goal } from '@/store/useStore';
 import { cn, formatCurrency, convertValue } from '@/lib/utils';
 import { toast } from 'sonner';
 import { goalsApi } from '@/services/api';
+import { motion } from 'motion/react';
 
-const EMOJI_OPTIONS = ['🎯', '🚗', '🏠', '👴', '🎓', '💎', '✈️', '🏖️', '💻', '📱', '🎮', '🏋️', '💰', '🎉', '🧳', '📦'];
+const EMOJI_OPTIONS = [
+  '🎯',
+  '🚗',
+  '🏠',
+  '👴',
+  '🎓',
+  '💎',
+  '✈️',
+  '🏖️',
+  '💻',
+  '📱',
+  '🎮',
+  '🏋️',
+  '💰',
+  '🎉',
+  '🧳',
+  '📦',
+];
 
 export default function Goals() {
   const { user, goals, addGoal, updateGoal } = useStore();
@@ -95,7 +113,7 @@ export default function Goals() {
       await goalsApi.delete(goalId);
       // Remove from local state by forcing a re-render through hydration
       useStore.setState((state) => ({
-        goals: state.goals.filter(g => g.id !== goalId),
+        goals: state.goals.filter((g) => g.id !== goalId),
       }));
       toast.success(`"${goalTitle}" goal deleted`);
     } catch (error) {
@@ -104,104 +122,190 @@ export default function Goals() {
   };
 
   return (
-    <div className="space-y-8 pb-10">
-      <header className="flex items-center justify-between">
+    <motion.div
+      className="space-y-12 pb-20"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Financial Goals</h1>
-          <p className="text-text-muted mt-1">Track your progress towards major life milestones.</p>
+          <h1 className="text-4xl font-display font-semibold tracking-normal text-text-primary mb-2">
+            Strategy Map
+          </h1>
+          <p className="text-text-dim text-sm font-medium text-text-muted">Financial Goals</p>
         </div>
-        <Button className="gap-2" onClick={openCreateDialog}>
+        <Button
+          className="gap-2.5 px-8 py-6 bg-primary text-background hover:shadow-glow transition-all duration-300 rounded-md"
+          onClick={openCreateDialog}
+        >
           <Plus className="w-4 h-4" />
-          Create Goal
+          <span className="text-[10px] font-semibold tracking-wide">Map New Utility</span>
         </Button>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {goals.map((goal) => {
-          const progress = goal.target > 0 ? (goal.current / goal.target) * 100 : 0;
-          const remaining = goal.target - goal.current;
-          const monthsLeft = goal.monthlyContribution > 0 ? Math.ceil(remaining / goal.monthlyContribution) : 0;
-          const yearsLeft = (monthsLeft / 12).toFixed(1);
-
-          return (
-            <Card 
-              key={goal.id} 
-              className="group cursor-pointer relative"
-              onClick={() => openEditDialog(goal)}
-            >
-              <div className="flex items-start justify-between mb-6">
-                <div className="w-12 h-12 bg-surface-elevated rounded-xl flex items-center justify-center text-2xl group-hover:bg-primary/10 transition-colors">
-                  {goal.icon}
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    className="p-2 opacity-0 group-hover:opacity-100 hover:bg-danger/10 hover:text-danger rounded-lg transition-all"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(goal.id, goal.title);
-                    }}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                  <Button variant="ghost" size="sm" className="p-2">
-                    <Pencil className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </Button>
-                </div>
-              </div>
-              
-              <h3 className="text-xl font-bold mb-1">{goal.title}</h3>
-              <p className="text-sm text-text-muted mb-6 flex items-center gap-2">
-                <Target className="w-4 h-4" />
-                Target: {formatCurrency(convertValue(goal.target, goal.baseCurrency, user?.currency || 'INR'), user?.currency)}
-              </p>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-text-secondary">Progress</span>
-                  <span className="font-bold text-primary">{progress.toFixed(0)}%</span>
-                </div>
-                <div className="h-2 w-full bg-surface-elevated rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-primary rounded-full transition-all duration-1000" 
-                    style={{ width: `${Math.min(progress, 100)}%` }}
-                  />
-                </div>
-                <div className="flex items-center justify-between text-xs text-text-muted">
-                  <span>{formatCurrency(convertValue(goal.current, goal.baseCurrency, user?.currency || 'INR'), user?.currency)} saved</span>
-                  <span>{formatCurrency(convertValue(Math.max(remaining, 0), goal.baseCurrency, user?.currency || 'INR'), user?.currency)} left</span>
-                </div>
-              </div>
-
-              <div className="mt-8 pt-6 border-t border-border/30 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-success" />
-                  <span className="text-xs font-bold text-text-secondary">{formatCurrency(convertValue(goal.monthlyContribution, goal.baseCurrency, user?.currency || 'INR'), user?.currency)}/mo</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-text-muted" />
-                  <span className="text-xs font-bold text-text-secondary">Est. {yearsLeft} years</span>
-                </div>
-              </div>
-            </Card>
-          );
-        })}
-
-        <button 
-          onClick={openCreateDialog}
-          className="flex flex-col items-center justify-center p-8 rounded-xl border-2 border-dashed border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-all group"
-        >
-          <div className="w-12 h-12 rounded-full bg-surface-elevated flex items-center justify-center mb-4 group-hover:bg-primary/20 group-hover:text-primary transition-all">
-            <Plus className="w-6 h-6" />
+      {goals.length === 0 ? (
+        <Card className="p-24 flex flex-col items-center justify-center text-center glass-card border-border bg-surface-low/30 backdrop-blur-3xl shadow-glow-sm">
+          <div className="w-20 h-20 bg-surface-elevated border border-border rounded-full flex items-center justify-center mb-10 opacity-50 shadow-glow-sm">
+            <Target className="w-10 h-10 text-text-dim" />
           </div>
-          <p className="font-bold text-text-secondary group-hover:text-primary transition-all">Add New Goal</p>
-          <p className="text-xs text-text-muted mt-1">Plan for your future today</p>
-        </button>
-      </div>
+          <h3 className="font-display font-semibold text-text-primary mb-4 tracking-wide text-sm">
+            No Active Projections
+          </h3>
+          <p className="text-[14px] text-text-dim/50 max-w-[340px] font-medium leading-relaxed mb-10">
+            Define your financial synthesis. Initialize your first wealth trajectory to begin
+            monitoring capital accrual.
+          </p>
+          <Button
+            onClick={openCreateDialog}
+            className="gap-2.5 px-10 py-6 bg-primary text-background rounded-md"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="text-[10px] font-semibold tracking-wide">
+              Initialize First Trajectory
+            </span>
+          </Button>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {goals.map((goal) => {
+            const progress = goal.target > 0 ? (goal.current / goal.target) * 100 : 0;
+            const remaining = goal.target - goal.current;
+            const monthsLeft =
+              goal.monthlyContribution > 0 ? Math.ceil(remaining / goal.monthlyContribution) : 0;
+            const yearsLeft = (monthsLeft / 12).toFixed(1);
+
+            return (
+              <Card
+                key={goal.id}
+                className="group cursor-pointer relative p-8 glass-card border-border bg-surface-low/20 backdrop-blur-2xl transition-all duration-500 hover:bg-surface-low/40 hover:border-primary/20"
+                onClick={() => openEditDialog(goal)}
+              >
+                <div className="flex items-start justify-between mb-10">
+                  <div className="w-14 h-14 bg-surface-elevated border border-border rounded-xl flex items-center justify-center text-3xl group-hover:bg-primary/5 group-hover:border-primary/20 transition-all duration-300">
+                    {goal.icon}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className="p-3 opacity-0 group-hover:opacity-100 bg-surface-elevated border border-border hover:bg-danger/10 hover:text-danger hover:border-danger/30 rounded-md transition-all duration-300"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (
+                          window.confirm(
+                            `Purge "${goal.title}" trajectory? Data will be non-retrievable.`
+                          )
+                        ) {
+                          handleDelete(goal.id, goal.title);
+                        }
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    <button className="p-3 opacity-0 group-hover:opacity-100 bg-surface-elevated border border-border hover:text-primary hover:border-primary/30 rounded-md transition-all duration-300">
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <h3 className="text-xl font-display font-semibold text-text-primary tracking-normal mb-2">
+                  {goal.title}
+                </h3>
+                <p className="text-[10px] font-semibold text-text-dim/40 tracking-wide mb-8 flex items-center gap-2">
+                  <Target className="w-3.5 h-3.5" />
+                  Threshold:{' '}
+                  {formatCurrency(
+                    convertValue(goal.target, goal.baseCurrency, user?.currency || 'INR'),
+                    user?.currency
+                  )}
+                </p>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-semibold tracking-wide text-text-dim">
+                      Analysis Rate
+                    </span>
+                    <span className="text-sm font-display font-semibold text-primary">
+                      {progress.toFixed(0)}%
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full bg-surface-elevated rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full transition-all duration-1000 shadow-glow-sm"
+                      style={{ width: `${Math.min(progress, 100)}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] font-medium">
+                    <span className="text-text-primary/80">
+                      {formatCurrency(
+                        convertValue(goal.current, goal.baseCurrency, user?.currency || 'INR'),
+                        user?.currency
+                      )}{' '}
+                      Accrued
+                    </span>
+                    <span className="text-text-dim/40">
+                      {formatCurrency(
+                        convertValue(
+                          Math.max(remaining, 0),
+                          goal.baseCurrency,
+                          user?.currency || 'INR'
+                        ),
+                        user?.currency
+                      )}{' '}
+                      Gap
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-10 pt-8 border-t border-border flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <TrendingUp className="w-4 h-4 text-tertiary" />
+                    <span className="text-[10px] font-semibold tracking-wide text-text-primary/90">
+                      {formatCurrency(
+                        convertValue(
+                          goal.monthlyContribution,
+                          goal.baseCurrency,
+                          user?.currency || 'INR'
+                        ),
+                        user?.currency
+                      )}{' '}
+                      / Velocity
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Calendar className="w-4 h-4 text-text-dim/40" />
+                    <span className="text-[10px] font-semibold tracking-wide text-text-primary/90">
+                      E.T.A {yearsLeft} Cycles
+                    </span>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+
+          <button
+            onClick={openCreateDialog}
+            className="flex flex-col items-center justify-center p-12 rounded-xl border border-dashed border-border hover:border-primary/20 hover:bg-primary/5 transition-all duration-500 group"
+          >
+            <div className="w-16 h-16 rounded-full bg-surface-elevated flex items-center justify-center mb-6 group-hover:bg-primary/10 group-hover:text-primary transition-all duration-500">
+              <Plus className="w-8 h-8" />
+            </div>
+            <p className="text-[11px] font-semibold tracking-wide text-text-dim group-hover:text-text-primary transition-all">
+              Initialize New Vector
+            </p>
+            <p className="text-[9px] font-medium text-text-dim/30 mt-2 tracking-wide leading-relaxed text-center max-w-[160px]">
+              Strategize for future capital allocation
+            </p>
+          </button>
+        </div>
+      )}
 
       {/* Create / Edit Goal Dialog */}
       <Dialog
         isOpen={isDialogOpen}
-        onClose={() => { setIsDialogOpen(false); resetForm(); }}
+        onClose={() => {
+          setIsDialogOpen(false);
+          resetForm();
+        }}
         title={editingGoal ? 'Edit Goal' : 'Create New Goal'}
       >
         <div className="space-y-5">
@@ -215,10 +319,10 @@ export default function Goals() {
                   type="button"
                   onClick={() => setFormIcon(emoji)}
                   className={cn(
-                    "w-10 h-10 rounded-lg text-xl flex items-center justify-center transition-all",
-                    formIcon === emoji 
-                      ? "bg-primary/20 border-2 border-primary scale-110" 
-                      : "bg-surface-elevated hover:bg-primary/10 border-2 border-transparent"
+                    'w-10 h-10 rounded-lg text-xl flex items-center justify-center transition-all',
+                    formIcon === emoji
+                      ? 'bg-primary/20 border-2 border-primary scale-110'
+                      : 'bg-surface-elevated hover:bg-primary/10 border-2 border-transparent'
                   )}
                 >
                   {emoji}
@@ -252,6 +356,11 @@ export default function Goals() {
               min="1"
               step="1000"
             />
+            {formTarget && !isNaN(parseFloat(formTarget)) && (
+              <p className="text-xs text-primary mt-1.5 font-bold font-numbers tracking-normal pl-1">
+                = {formatCurrency(parseFloat(formTarget), user?.currency)}
+              </p>
+            )}
           </div>
 
           {/* Current Savings (only shown when editing) */}
@@ -268,6 +377,11 @@ export default function Goals() {
                 min="0"
                 step="1000"
               />
+              {formCurrent && !isNaN(parseFloat(formCurrent)) && (
+                <p className="text-xs text-primary mt-1.5 font-bold font-numbers tracking-normal pl-1">
+                  = {formatCurrency(parseFloat(formCurrent), user?.currency)}
+                </p>
+              )}
             </div>
           )}
 
@@ -278,15 +392,24 @@ export default function Goals() {
             </label>
             <Input
               type="number"
-              placeholder={formTarget ? `Auto: ${Math.round(parseFloat(formTarget || '0') / 60)}` : 'Optional'}
+              placeholder={
+                formTarget ? `Auto: ${Math.round(parseFloat(formTarget || '0') / 60)}` : 'Optional'
+              }
               value={formMonthly}
               onChange={(e) => setFormMonthly(e.target.value)}
               min="0"
               step="100"
             />
-            <p className="text-xs text-text-muted mt-1">
-              Leave empty to auto-calculate based on a 5-year plan.
-            </p>
+            <div className="flex items-center justify-between mt-1">
+              <p className="text-xs text-text-muted">
+                Leave empty to auto-calculate based on a 5-year plan.
+              </p>
+              {formMonthly && !isNaN(parseFloat(formMonthly)) && (
+                <p className="text-xs text-primary font-bold font-numbers tracking-normal">
+                  = {formatCurrency(parseFloat(formMonthly), user?.currency)}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Preview */}
@@ -298,18 +421,30 @@ export default function Goals() {
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-text-muted">Target</span>
-                <span className="font-numbers font-bold">{formatCurrency(parseFloat(formTarget), user?.currency)}</span>
+                <span className="font-numbers font-bold">
+                  {formatCurrency(parseFloat(formTarget), user?.currency)}
+                </span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-text-muted">Monthly</span>
                 <span className="font-numbers font-bold">
-                  {formatCurrency(formMonthly ? parseFloat(formMonthly) : Math.round(parseFloat(formTarget) / 60), user?.currency)}
+                  {formatCurrency(
+                    formMonthly ? parseFloat(formMonthly) : Math.round(parseFloat(formTarget) / 60),
+                    user?.currency
+                  )}
                 </span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-text-muted">Est. Duration</span>
                 <span className="font-numbers font-bold">
-                  {((parseFloat(formTarget) / (formMonthly ? parseFloat(formMonthly) : Math.round(parseFloat(formTarget) / 60))) / 12).toFixed(1)} years
+                  {(
+                    parseFloat(formTarget) /
+                    (formMonthly
+                      ? parseFloat(formMonthly)
+                      : Math.round(parseFloat(formTarget) / 60)) /
+                    12
+                  ).toFixed(1)}{' '}
+                  years
                 </span>
               </div>
             </div>
@@ -319,20 +454,19 @@ export default function Goals() {
             <Button
               variant="secondary"
               className="flex-1"
-              onClick={() => { setIsDialogOpen(false); resetForm(); }}
+              onClick={() => {
+                setIsDialogOpen(false);
+                resetForm();
+              }}
             >
               Cancel
             </Button>
-            <Button
-              variant="primary"
-              className="flex-1"
-              onClick={handleSave}
-            >
+            <Button variant="primary" className="flex-1" onClick={handleSave}>
               {editingGoal ? 'Save Changes' : 'Create Goal'}
             </Button>
           </div>
         </div>
       </Dialog>
-    </div>
+    </motion.div>
   );
 }
